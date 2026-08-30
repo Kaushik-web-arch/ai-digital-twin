@@ -9,7 +9,6 @@ import os
 load_dotenv(override=True)
 
 MODEL_NAME = "gemini-3.5-flash-lite"
-
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 client = OpenAI(
@@ -22,7 +21,6 @@ system = [{"role": "system", "content": TWIN_SYSTEM_PROMPT}]
 
 def chat(message, history):
     history = [{"role": h["role"], "content": h["content"]} for h in history]
-
     messages = system + history + [{"role": "user", "content": message}]
 
     response = client.chat.completions.create(
@@ -36,7 +34,6 @@ def chat(message, history):
         tool_calls = message.tool_calls
 
         results = handle_tool_calls(tool_calls)
-
         messages.append(message)
         messages.extend(results)
 
@@ -50,6 +47,8 @@ def chat(message, history):
 
 
 if __name__ == "__main__":
+    port = int(os.getenv("PORT", "7860"))
+
     gr.ChatInterface(
         fn=chat,
         examples=EXAMPLES,
@@ -60,6 +59,8 @@ if __name__ == "__main__":
             height=560
         ),
     ).launch(
+        server_name="0.0.0.0",
+        server_port=port,
         css=CSS,
         js=JS,
         theme=gr.themes.Base(),
