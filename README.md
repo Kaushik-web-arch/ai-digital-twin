@@ -43,7 +43,7 @@ The application reads `summary.txt` and `linkedin.pdf`, builds a system prompt f
 ## Run locally
 
 1. Clone the repository.
-2. Create and activate a Python virtual environment.
+2. Create and activate a Python 3.12 virtual environment.
 3. Install dependencies:
 
 ```bash
@@ -61,6 +61,8 @@ GOOGLE_API_KEY=your_key_here
 ```bash
 python app.py
 ```
+
+Open `http://127.0.0.1:7860`. The default model is `gemini-3.1-flash-lite`. Set `GEMINI_MODEL` in `.env` if your Gemini API key uses a different compatible model.
 
 ## Project files
 
@@ -88,7 +90,7 @@ I built this project as a personal AI Digital Twin that can answer questions abo
 
 ### Optional notifications
 
-Set `PUSHOVER_USER` and `PUSHOVER_TOKEN` in your local `.env` to enable contact-interest and unanswered-question notifications. The current functions do not write durable local records. They return `OK` even when credentials are missing or the notification response indicates failure, so a tool response alone is not proof of delivery.
+Set `PUSHOVER_USER` and `PUSHOVER_TOKEN` in your local `.env` to enable contact-interest and unanswered-question notifications. When credentials are absent, the chatbot runs without notification tools. The tools report whether Pushover accepted the request. Confirm receipt on the device to verify delivery. The app does not save contact or question records locally.
 
 ### Manual verification
 

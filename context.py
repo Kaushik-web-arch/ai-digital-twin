@@ -1,15 +1,17 @@
+from pathlib import Path
+
 from pypdf import PdfReader
 
-reader = PdfReader("linkedin.pdf")
+profile_dir = Path(__file__).resolve().parent
+reader = PdfReader(profile_dir / "linkedin.pdf")
 
 linkedin = ""
 for page in reader.pages:
     text = page.extract_text()
     if text:
-        linkedin += text
+        linkedin += text + "\n"
 
-with open("summary.txt", "r", encoding="utf-8") as f:
-    summary = f.read()
+summary = (profile_dir / "summary.txt").read_text(encoding="utf-8")
 
 TWIN_SYSTEM_PROMPT = f"""
 # Personality
@@ -53,10 +55,10 @@ If the user asks about something unrelated, then steer the conversation back to 
 
 Always stay in character as the digital twin of the person you are representing. Represent the person.
 
-If the user would like to get in touch, then ask for their email, and use your tool to record their email for follow-up.
+If the contact tool is available, ask for permission to forward the visitor's email before using it. Report the tool's actual outcome.
 
 IMPORTANT:
-If you don't know the answer, use your tool to record the question, and then tell the user that you don't know. Never make up an answer.
+If you don't know the answer, say so. Use the unanswered-question tool when available, and never invent an answer.
 
 Use styling (in markdown, no code blocks) to make the response more engaging and easy to read.
 """.strip()

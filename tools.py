@@ -1,46 +1,47 @@
 import json
 import os
 import requests
-from dotenv import load_dotenv
-
-load_dotenv(override=True)
-
-pushover_user = os.getenv("PUSHOVER_USER")
-pushover_token = os.getenv("PUSHOVER_TOKEN")
-
 pushover_url = "https://api.pushover.net/1/messages.json"
 
 
-def push(text):
-    """Send an optional Pushover notification when credentials are configured."""
-    if not pushover_user or not pushover_token:
-        return False
+def notifications_enabled():
+    return bool(os.getenv("PUSHOVER_USER", "").strip() and os.getenv("PUSHOVER_TOKEN", "").strip())
 
-    response = requests.post(
-        pushover_url,
-        data={
-            "token": pushover_token,
-            "user": pushover_user,
-            "message": text,
-        },
-        timeout=10,
-    )
-    return response.ok
+
+def push(text):
+    """Send a Pushover notification and report whether the service accepted it."""
+    if not notifications_enabled():
+        return {"status": "disabled"}
+
+    try:
+        response = requests.post(
+            pushover_url,
+            data={
+                "token": os.environ["PUSHOVER_TOKEN"].strip(),
+                "user": os.environ["PUSHOVER_USER"].strip(),
+                "message": text,
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+        if response.json().get("status") == 1:
+            return {"status": "accepted"}
+    except (requests.RequestException, ValueError):
+        pass
+    return {"status": "failed"}
 
 
 def record_user_details(email, name="Name not provided", notes="not provided"):
-    push(f"Recording interest from {name} with email {email} and notes {notes}")
-    return "OK"
+    return push(f"Recording interest from {name} with email {email} and notes {notes}")
 
 
 def record_unknown_question(question):
-    push(f"Recording {question} asked that I couldn't answer")
-    return "OK"
+    return push(f"Recording {question} asked that I couldn't answer")
 
 
 record_user_details_json = {
     "name": "record_user_details",
-    "description": "Use this tool to record that a user is interested in being in touch and provided an email address",
+    "description": "Use this tool to record that a user is interested in being in touch and consented to sharing their email address",
     "parameters": {
         "type": "object",
         "properties": {
@@ -84,10 +85,12 @@ def handle_tool_calls(tool_calls):
     results = []
     for tool_call in tool_calls:
         tool_name = tool_call.function.name
-        arguments = json.loads(tool_call.function.arguments)
-        print(f"Tool called: {tool_name}", flush=True)
         tool = tool_map.get(tool_name)
-        result = tool(**arguments) if tool else "Unknown tool: " + tool_name
+        try:
+            arguments = json.loads(tool_call.function.arguments)
+            result = tool(**arguments) if tool else {"status": "unknown_tool"}
+        except (ValueError, TypeError):
+            result = {"status": "invalid_arguments"}
         results.append(
             {"role": "tool", "content": json.dumps(result), "tool_call_id": tool_call.id}
         )
