@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from openai import APIConnectionError, APIStatusError, OpenAI
 
 from context import TWIN_SYSTEM_PROMPT
-from styles import CSS, EXAMPLES, JS, PROJECTS
+from styles import CSS, EXAMPLES, JS, PROJECT_GROUPS
 from tools import handle_tool_calls, notifications_enabled, tools
 
 load_dotenv(Path(__file__).with_name(".env"))
@@ -95,22 +95,24 @@ def build_demo():
                         autofocus=True,
                     ),
                 )
-            with gr.Column(scale=1, min_width=250, elem_id="twin-explorer"):
+            with gr.Column(scale=1, min_width=265, elem_id="twin-explorer"):
                 gr.Markdown(
                     "## Project Explorer\nPick a project to fill in a question.",
                     elem_id="twin-project-heading",
                 )
-                for title, stack, question in PROJECTS:
-                    with gr.Column(elem_classes="twin-project"):
-                        button = gr.Button(title, size="sm", elem_classes="twin-project-link")
-                        gr.Markdown(stack, elem_classes="twin-stack")
-                        button.click(
-                            fn=lambda draft=question: draft,
-                            outputs=conversation.textbox,
-                            queue=False,
-                            show_progress="hidden",
-                            api_visibility="undocumented",
-                        )
+                for index, (group, projects) in enumerate(PROJECT_GROUPS):
+                    with gr.Accordion(group, open=index == 0, elem_classes="twin-project-group"):
+                        for title, stack, question in projects:
+                            with gr.Column(elem_classes="twin-project"):
+                                button = gr.Button(title, size="sm", elem_classes="twin-project-link")
+                                gr.Markdown(stack, elem_classes="twin-stack")
+                                button.click(
+                                    fn=lambda draft=question: draft,
+                                    outputs=conversation.textbox,
+                                    queue=False,
+                                    show_progress="hidden",
+                                    api_visibility="undocumented",
+                                )
     return demo
 
 
