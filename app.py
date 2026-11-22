@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from openai import APIConnectionError, APIStatusError, OpenAI
 
 from context import TWIN_SYSTEM_PROMPT
-from styles import CSS, EXAMPLES, JS
+from styles import CSS, EXAMPLES, JS, PROJECT_GROUPS
 from tools import handle_tool_calls, notifications_enabled, tools
 
 load_dotenv(Path(__file__).with_name(".env"))
@@ -75,14 +75,68 @@ def chat(message, history):
 
 
 def build_demo():
-    return gr.ChatInterface(
-        fn=chat,
-        examples=EXAMPLES,
-        cache_examples=False,
-        title="Kaushik Santhosh",
-        description="AI Digital Twin · Software Development · Data Science · Artificial Intelligence",
-        chatbot=gr.Chatbot(show_label=False, height=560),
-    )
+    with gr.Blocks(title="Kaushik Santhosh | Digital Twin") as demo:
+        gr.Markdown(
+            "# Kaushik Santhosh\nAI Digital Twin · Projects, skills and experience",
+            elem_id="twin-header",
+        )
+        with gr.Row(elem_id="twin-layout"):
+            with gr.Column(scale=3, elem_id="twin-chat-column"):
+                conversation = gr.ChatInterface(
+                    fn=chat,
+                    examples=EXAMPLES,
+                    cache_examples=False,
+                    chatbot=gr.Chatbot(show_label=False, height=510, elem_id="twin-chatbot"),
+                    textbox=gr.Textbox(
+                        placeholder="Ask a question or follow up…",
+                        elem_id="twin-input",
+                        submit_btn="Send",
+                        stop_btn=True,
+                        autofocus=True,
+                    ),
+                )
+            with gr.Column(scale=1, min_width=265, elem_id="twin-explorer"):
+                gr.Markdown(
+                    "## Project Explorer\nPick a project to fill in a question.",
+                    elem_id="twin-project-heading",
+                )
+                for index, (group, projects) in enumerate(PROJECT_GROUPS):
+                    with gr.Accordion(group, open=index == 0, elem_classes="twin-project-group"):
+                        for title, stack, question in projects:
+                            with gr.Column(elem_classes="twin-project"):
+                                button = gr.Button(title, size="sm", elem_classes="twin-project-link")
+                                gr.Markdown(stack, elem_classes="twin-stack")
+                                button.click(
+                                    fn=lambda draft=question: draft,
+                                    outputs=conversation.textbox,
+                                    queue=False,
+                                    show_progress="hidden",
+                                    api_visibility="undocumented",
+                                )
+    return demo
+
+
+def build_theme():
+    colors = {
+        "body_background_fill": "#111b26",
+        "body_text_color": "#f0f5fa",
+        "body_text_color_subdued": "#b9c5d2",
+        "background_fill_primary": "#16222f",
+        "background_fill_secondary": "#263746",
+        "border_color_primary": "#354657",
+        "block_background_fill": "#1d2937",
+        "block_border_color": "#354657",
+        "input_background_fill": "#1d2937",
+        "input_border_color": "#526577",
+        "button_primary_background_fill": "#a9e3c8",
+        "button_primary_background_fill_hover": "#c6f2de",
+        "button_primary_text_color": "#152322",
+        "button_secondary_background_fill": "#223142",
+        "button_secondary_background_fill_hover": "#304659",
+        "button_secondary_text_color": "#f0f5fa",
+        "link_text_color": "#a9e3c8",
+    }
+    return gr.themes.Base().set(**colors, **{f"{key}_dark": value for key, value in colors.items()})
 
 
 if __name__ == "__main__":
@@ -91,6 +145,6 @@ if __name__ == "__main__":
         server_port=int(os.getenv("PORT", "7860")),
         css=CSS,
         js=JS,
-        theme=gr.themes.Base(),
-        share=False,
+        theme=build_theme(),
+        share=os.getenv("GRADIO_SHARE", "").strip().lower() in {"1", "true"},
     )
