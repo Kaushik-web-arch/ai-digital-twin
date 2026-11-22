@@ -15,35 +15,7 @@ PROJECT_GROUPS = (
             ("Ghost Drain Hunter", "Battery Monitoring App · Kotlin", "How does Ghost Drain Hunter measure screen-off battery drain, and what was Kaushik’s role?"),
             *PROJECTS,
             ("AI Digital Twin", "Gemini · Gradio · PyPDF", "How does this AI Digital Twin use Kaushik’s profile to answer questions?"),
-        ),
-    ),
-    (
-        "Prototypes and portfolio",
-        (
             ("Multi-Model SDR Outreach Agent", "Prototype · Gemini · Groq", "How does Kaushik’s Multi-Model SDR Outreach Agent draft and review outreach emails?"),
-            ("Beer Reviews Data Exploration", "Workshop · Pandas · Scikit-learn", "How did the Beer Reviews Data Exploration project use ratings for recommendations?"),
-            ("Student Marks Calculator", "Python CLI exercise", "What inputs and outputs does the Student Marks Calculator use?"),
-            ("GitHub Profile and Project Index", "Portfolio · GitHub Actions", "What did Kaushik automate in his GitHub Profile and Project Index?"),
-        ),
-    ),
-    (
-        "Academic and lab work",
-        (
-            ("Maven Simple Project", "Java · Maven · Jenkins", "What build, test and publishing steps were demonstrated in the Maven Simple Project?"),
-            ("CollegeEvents", "HTML · CSS · JavaScript · Maven", "What does the CollegeEvents site show, and how was it built?"),
-            ("Gradle CIE practical", "Java · Gradle · TestNG", "What did Kaushik configure in the Gradle CIE practical?"),
-            ("DevOps Lab", "Java and Maven practice", "What is documented about Kaushik’s Devops_lab repository?"),
-            ("Jenkins practice", "Java · Maven · Jenkins", "What is documented about Kaushik’s Jenkins practice and the jenkin repository?"),
-            ("Multimodal HDR", "Academic mini project", "What is documented about Kaushik’s Multimodal HDR mini project?"),
-            ("Product Demand Forecasting paper", "IEEE document preparation", "What did Kaushik contribute to the Product Demand Forecasting paper?"),
-        ),
-    ),
-    (
-        "Hackathon concepts and preparation",
-        (
-            ("TriNETRA", "SIH055 · Team proposal", "What was proposed for TriNETRA SIH055, and which results were targets?"),
-            ("DataGuard", "Android data monitoring concept", "What was the DataGuard concept, and how did plans change before the hackathon?"),
-            ("Android Compose setup project", "Hackathon preparation", "What Android Studio and Jetpack Compose setup work did Kaushik do before the hackathon?"),
         ),
     ),
 )
@@ -84,13 +56,13 @@ html, body, gradio-app {
     letter-spacing: -.035em;
 }
 
-#twin-header p, #twin-project-heading p, .twin-stack p {
+#twin-header p, #twin-project-heading p, #twin-featured-heading p, .twin-stack p {
     color: #b9c5d2;
     margin: 0;
 }
 
 #twin-layout { gap: 20px; align-items: start; }
-#twin-chat-column { min-width: 0 !important; }
+#twin-chat-column { min-width: 0 !important; flex: 1 1 0 !important; }
 #twin-chatbot { border-color: #354657; }
 
 #twin-chatbot .user {
@@ -110,30 +82,64 @@ html, body, gradio-app {
 }
 
 #twin-explorer {
+    box-sizing: border-box;
     background: #16222f;
     border: 1px solid #354657;
     border-radius: 12px;
-    padding: 16px;
-    gap: 10px;
+    padding: 14px;
+    gap: 8px;
+    width: 260px !important;
+    min-width: 235px !important;
+    max-width: 275px !important;
+    flex: 0 0 260px !important;
     max-height: min(650px, 80dvh);
     overflow-y: auto;
+    overflow-x: hidden;
     scrollbar-color: #526577 #16222f;
 }
 
+#twin-explorer > * {
+    box-sizing: border-box;
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+
 #twin-project-heading { padding-bottom: 3px; }
-.twin-project-group { flex-shrink: 0; }
-.twin-project-group button { white-space: normal; }
-#twin-project-heading h2 { margin: 0 0 7px; font-size: 19px; }
-.twin-project { border-top: 1px solid #354657; padding: 10px 0; gap: 1px; }
+#twin-project-heading h2 { margin: 0 0 6px; font-size: 19px; }
+#twin-featured-heading { padding: 2px 6px 4px; }
+#twin-featured-heading h3 {
+    margin: 0;
+    color: #a9e3c8;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+.twin-project {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    border-top: 1px solid #354657;
+    padding: 8px 0;
+    gap: 2px;
+}
 
 button.twin-project-link {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     justify-content: flex-start;
     text-align: left;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
     background: transparent;
     border: 0;
     box-shadow: none;
     color: #edf5fa;
-    padding: 4px 6px;
+    padding: 5px 6px;
+    font-size: 13px;
+    line-height: 1.35;
 }
 
 button.twin-project-link:hover {
@@ -141,14 +147,29 @@ button.twin-project-link:hover {
     color: #a9e3c8;
 }
 
-.twin-stack { padding: 0 6px; font-size: 13px; }
+.twin-stack {
+    box-sizing: border-box;
+    max-width: 100%;
+    padding: 0 6px;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
 footer { display: none !important; }
 
 @media (max-width: 800px) {
     #twin-layout { flex-direction: column; }
-    #twin-chat-column, #twin-explorer { width: 100%; min-width: 0 !important; }
+    #twin-chat-column, #twin-explorer {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: 1 1 auto !important;
+    }
     #twin-chatbot { max-height: 60dvh; }
-    #twin-explorer { max-height: none; overflow: visible; }
+    #twin-explorer {
+        max-height: 420px;
+        overflow-x: hidden;
+    }
 }
 """
 
