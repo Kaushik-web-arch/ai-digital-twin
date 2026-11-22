@@ -97,7 +97,7 @@ def build_demo():
                 )
             with gr.Column(scale=1, min_width=235, elem_id="twin-explorer"):
                 gr.Markdown(
-                    "## Project Explorer\\nChoose a project to start a question.",
+                    "## Project Explorer\nChoose a project to start a question.",
                     elem_id="twin-project-heading",
                 )
                 gr.Markdown("### Featured projects", elem_id="twin-featured-heading")
