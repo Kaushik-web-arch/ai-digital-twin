@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from openai import APIConnectionError, APIStatusError, OpenAI
 
 from context import TWIN_SYSTEM_PROMPT
-from styles import CSS, EXAMPLES, JS, PROJECT_GROUPS
+from styles import CONTACT_PROMPT, CSS, EXAMPLES, JS, PROJECT_GROUPS
 from tools import send_contact, handle_tool_calls, notifications_enabled, tools
 
 load_dotenv(Path(__file__).with_name(".env"))
@@ -23,7 +23,7 @@ client = (
 )
 
 
-def chat(message, history):
+def chat(message, history, allow_forwarding=False):
     if not client:
         raise gr.Error("Set GOOGLE_API_KEY in .env and restart the app.")
     if not message.strip():
@@ -32,7 +32,8 @@ def chat(message, history):
     context = TWIN_SYSTEM_PROMPT
     options = {}
     if notifications_enabled():
-        options["tools"] = tools
+        if allow_forwarding is True:
+            options["tools"] = tools
         context += "\nFor contact requests, direct visitors to the Contact Kaushik form below the chat."
     else:
         context += "\nNotifications are disabled. If asked to forward a message, explain that forwarding is unavailable."
@@ -90,9 +91,15 @@ def build_demo():
         )
         with gr.Row(elem_id="twin-layout"):
             with gr.Column(scale=3, elem_id="twin-chat-column"):
+                contact_enabled = notifications_enabled()
+                forwarding = gr.Checkbox(
+                    label="Allow unanswered questions to be sent to Kaushik via Pushover",
+                    value=False, visible=contact_enabled,
+                )
                 conversation = gr.ChatInterface(
                     fn=chat,
-                    examples=EXAMPLES,
+                    examples=[[prompt] for prompt in EXAMPLES if contact_enabled or prompt != CONTACT_PROMPT],
+                    additional_inputs=[forwarding],
                     cache_examples=False,
                     chatbot=gr.Chatbot(show_label=False, height=510, elem_id="twin-chatbot"),
                     textbox=gr.Textbox(

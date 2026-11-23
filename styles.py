@@ -20,13 +20,15 @@ PROJECT_GROUPS = (
     ),
 )
 
+CONTACT_PROMPT = "📩 How can I get in touch with him?"
+
 EXAMPLES = [
     "👋 Tell me about Kaushik",
     "💻 What are his strongest technical skills?",
     "🤖 What is he learning about AI?",
     "🚀 What projects and experiences has he worked on?",
     "🎓 Tell me about his education",
-    "📩 How can I get in touch with him?",
+    CONTACT_PROMPT,
     *(question for _, _, question in PROJECTS),
     "How does this AI Digital Twin use Kaushik’s profile to answer questions?",
 ]

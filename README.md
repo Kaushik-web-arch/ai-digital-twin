@@ -92,7 +92,7 @@ I built this project as a personal AI Digital Twin that can answer questions abo
 
 ### Optional notifications
 
-Set `PUSHOVER_USER` and `PUSHOVER_TOKEN` in your local `.env` to enable unanswered-question notifications and a visitor-confirmed contact form. When credentials are absent, the chatbot runs without notification tools. The tools report whether Pushover accepted the request. Confirm receipt on the device to verify delivery. The app does not save contact or question records locally.
+Set `PUSHOVER_USER` and `PUSHOVER_TOKEN` in your local `.env` to enable a visitor-confirmed contact form and offer an unchecked option to forward unanswered questions. When credentials are absent, the chatbot runs without notification tools. The tools report whether Pushover accepted the request. Confirm receipt on the device to verify delivery. The app does not save contact or question records locally.
 
 ### Manual verification
 
@@ -100,6 +100,8 @@ Set `PUSHOVER_USER` and `PUSHOVER_TOKEN` in your local `.env` to enable unanswer
 2. Ask about an achievement absent from that profile and check that the answer acknowledges the missing information.
 3. With your own test contact details and configured Pushover credentials, open Contact Kaushik, review the email and message, click Confirm and send, and independently confirm the notification arrives.
 4. Record the commit, model, dependency versions and observed results without exposing credentials or personal contact details.
+
+For four live review questions run `.\\.venv\\Scripts\\python.exe review_demo.py`. Open the resulting HTML file in a browser. Compare each answer with its expected facts before presenting. The saved transcript works offline. For a visual backup, record your running Gradio demo on the presentation laptop.
 
 These are checks to perform, not recorded passing results. The repository currently has no automated test suite. Model access, notification delivery and factual quality require separate verification; no measured hallucination reduction is claimed.
 
