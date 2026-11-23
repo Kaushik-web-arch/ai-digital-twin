@@ -7,7 +7,7 @@ from openai import APIConnectionError, APIStatusError, OpenAI
 
 from context import TWIN_SYSTEM_PROMPT
 from styles import CSS, EXAMPLES, JS, PROJECT_GROUPS
-from tools import handle_tool_calls, notifications_enabled, tools
+from tools import send_contact, handle_tool_calls, notifications_enabled, tools
 
 load_dotenv(Path(__file__).with_name(".env"))
 
@@ -33,15 +33,23 @@ def chat(message, history):
     options = {}
     if notifications_enabled():
         options["tools"] = tools
+        context += "\nFor contact requests, direct visitors to the Contact Kaushik form below the chat."
     else:
         context += "\nNotifications are disabled. If asked to forward a message, explain that forwarding is unavailable."
 
     messages = [{"role": "system", "content": context}]
-    messages.extend(
-        {"role": item["role"], "content": item["content"]}
-        for item in history
-        if item["role"] in {"user", "assistant"} and isinstance(item["content"], str)
-    )
+    for item in history:
+        if item.get("role") not in {"user", "assistant"}:
+            continue
+        content = item.get("content")
+        if isinstance(content, list):
+            content = "\n".join(
+                part["text"] for part in content
+                if isinstance(part, dict) and part.get("type") == "text"
+                and isinstance(part.get("text"), str)
+            )
+        if isinstance(content, str) and content.strip():
+            messages.append({"role": item["role"], "content": content})
     messages.append({"role": "user", "content": message})
 
     try:
@@ -112,6 +120,14 @@ def build_demo():
                             show_progress="hidden",
                             api_visibility="undocumented",
                         )
+        if notifications_enabled():
+            with gr.Accordion("Contact Kaushik", open=False):
+                gr.Markdown("Review your email and message below. Confirm and send forwards both to Kaushik via Pushover.")
+                email = gr.Textbox(label="Your email")
+                note = gr.Textbox(label="Your message (optional)")
+                confirm = gr.Button("Confirm and send")
+                status = gr.Textbox(label="Delivery status", interactive=False)
+                confirm.click(send_contact, inputs=[email, note], outputs=status)
     return demo
 
 

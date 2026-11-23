@@ -7,7 +7,7 @@ A personal AI assistant that acts as a conversational representation of my profe
 - LLM/API integration using Gemini
 - Context-grounded conversational AI
 - Prompt engineering for a consistent professional persona
-- Tool calling for optional contact-interest and unanswered-question notifications
+- Optional unanswered-question notifications and a visitor-confirmed contact form
 - Gradio-based interactive chatbot UI
 - Environment-variable based secret management
 - A reusable structure that can be adapted to another person's profile
@@ -64,6 +64,8 @@ python app.py
 
 Open `http://127.0.0.1:7860`. The default model is `gemini-3.1-flash-lite`. Set `GEMINI_MODEL` in `.env` if your Gemini API key uses a different compatible model.
 
+For a temporary public demo link, set `GRADIO_SHARE=true` in `.env` and restart `app.py`. Share the public URL printed in the terminal and keep the app running during the demo. On Windows PowerShell, run `.\.venv\Scripts\python.exe app.py` from the project folder.
+
 ## Project files
 
 - `app.py` — main Gradio chatbot application
@@ -90,13 +92,13 @@ I built this project as a personal AI Digital Twin that can answer questions abo
 
 ### Optional notifications
 
-Set `PUSHOVER_USER` and `PUSHOVER_TOKEN` in your local `.env` to enable contact-interest and unanswered-question notifications. When credentials are absent, the chatbot runs without notification tools. The tools report whether Pushover accepted the request. Confirm receipt on the device to verify delivery. The app does not save contact or question records locally.
+Set `PUSHOVER_USER` and `PUSHOVER_TOKEN` in your local `.env` to enable unanswered-question notifications and a visitor-confirmed contact form. When credentials are absent, the chatbot runs without notification tools. The tools report whether Pushover accepted the request. Confirm receipt on the device to verify delivery. The app does not save contact or question records locally.
 
 ### Manual verification
 
 1. Start the app and ask a question whose answer is present in the supplied profile.
 2. Ask about an achievement absent from that profile and check that the answer acknowledges the missing information.
-3. With your own test contact details and configured Pushover credentials, request follow-up and independently confirm the notification arrives.
+3. With your own test contact details and configured Pushover credentials, open Contact Kaushik, review the email and message, click Confirm and send, and independently confirm the notification arrives.
 4. Record the commit, model, dependency versions and observed results without exposing credentials or personal contact details.
 
 These are checks to perform, not recorded passing results. The repository currently has no automated test suite. Model access, notification delivery and factual quality require separate verification; no measured hallucination reduction is claimed.

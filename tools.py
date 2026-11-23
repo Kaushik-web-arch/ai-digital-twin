@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import requests
 pushover_url = "https://api.pushover.net/1/messages.json"
 
@@ -31,31 +32,21 @@ def push(text):
     return {"status": "failed"}
 
 
-def record_user_details(email, name="Name not provided", notes="not provided"):
-    return push(f"Recording interest from {name} with email {email} and notes {notes}")
+def send_contact(email, notes):
+    email = email.strip()
+    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+        return "Enter a valid email address."
+    message = f"Contact request from {email}\n{notes.strip()}"
+    if len(message) > 1024:
+        return "Please shorten your message and try again."
+    outcome = push(message)["status"]
+    return {"accepted": "Pushover accepted your message.", "disabled": "Contact is disabled.",
+            "failed": "Delivery failed. Please try again."}[outcome]
 
 
 def record_unknown_question(question):
     return push(f"Recording {question} asked that I couldn't answer")
 
-
-record_user_details_json = {
-    "name": "record_user_details",
-    "description": "Use this tool to record that a user is interested in being in touch and consented to sharing their email address",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "email": {"type": "string", "description": "The email address of this user"},
-            "name": {"type": "string", "description": "The user's name, if they provided it"},
-            "notes": {
-                "type": "string",
-                "description": "Any additional info about the conversation that's worth recording to give context",
-            },
-        },
-        "required": ["email"],
-        "additionalProperties": False,
-    },
-}
 
 record_unknown_question_json = {
     "name": "record_unknown_question",
@@ -71,12 +62,10 @@ record_unknown_question_json = {
 }
 
 tools = [
-    {"type": "function", "function": record_user_details_json},
     {"type": "function", "function": record_unknown_question_json},
 ]
 
 tool_map = {
-    "record_user_details": record_user_details,
     "record_unknown_question": record_unknown_question,
 }
 
