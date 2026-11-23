@@ -13,8 +13,8 @@ PROJECT_GROUPS = (
         (
             ("AI Digital Twin", "Gemini · Gradio · PyPDF", "How does this AI Digital Twin use Kaushik’s profile to answer questions?"),
             ("Multi-Model SDR Outreach Agent", "Prototype · Gemini · Groq", "How does Kaushik’s Multi-Model SDR Outreach Agent draft and review outreach emails?"),
-            ("Sentinel", "Infrastructure monitoring · React · FastAPI", "What did Kaushik contribute to Sentinel, and what does the current version do?"),
-            ("Ghost Drain Hunter", "Battery Monitoring App · Kotlin", "How does Ghost Drain Hunter measure screen-off battery drain, and what was Kaushik’s role?"),
+            ("sih103", "Infrastructure monitoring · React · FastAPI", "What did Kaushik develop independently in sih103 after the integrated V1 baseline?"),
+            ("Ghost Drain Hunter", "DAEMON HOUR · Third prize · Kotlin", "What did Kaushik build for the battery app that won third prize at DAEMON HOUR?"),
             *PROJECTS,
         ),
     ),
