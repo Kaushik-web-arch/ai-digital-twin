@@ -30,10 +30,35 @@ def generate(model, payload, key):
     return response
 
 
+def local_reply(contents):
+    model = os.getenv("OLLAMA_MODEL", "").strip() or "qwen3:4b"
+    messages = [{"role": "system", "content": TWIN_SYSTEM_PROMPT +
+                 "\nContact forwarding and notification tools are unavailable in this conversation."}]
+    for turn in contents:
+        role = "assistant" if turn["role"] == "model" else "user"
+        messages.append({"role": role, "content": turn["parts"][0]["text"]})
+    try:
+        response = requests.post(
+            "http://127.0.0.1:11434/api/chat",
+            json={"model": model, "messages": messages, "stream": False, "think": False,
+                  "options": {"num_ctx": 8192, "num_predict": 512}},
+            timeout=(3, 180),
+        )
+    except requests.Timeout:
+        raise gr.Error("The local model timed out. Try a shorter question.") from None
+    except requests.ConnectionError:
+        raise gr.Error("Open Ollama on this computer, then send your question again.") from None
+    if response.status_code == 404:
+        raise gr.Error(f"Install the local model with: ollama pull {model}")
+    if not response.ok:
+        raise gr.Error(f"Ollama returned HTTP {response.status_code}. Check that the model fits in memory.")
+    answer = response.json().get("message", {}).get("content", "").strip()
+    if not answer:
+        raise gr.Error("The local model returned an empty reply.")
+    return answer
+
+
 def chat(message, history):
-    key = os.getenv("GOOGLE_API_KEY", "").strip()
-    if not key or key == "your_google_gemini_api_key_here":
-        raise gr.Error("Set GOOGLE_API_KEY in .env and restart.")
     if not message.strip():
         raise gr.Error("Enter a question.")
 
@@ -47,6 +72,11 @@ def chat(message, history):
             role = "model" if item["role"] == "assistant" else "user"
             contents.append({"role": role, "parts": [{"text": text}]})
     contents.append({"role": "user", "parts": [{"text": message}]})
+    if os.getenv("TWIN_PROVIDER", "").strip().lower() == "ollama":
+        return local_reply(contents)
+    key = os.getenv("GOOGLE_API_KEY", "").strip()
+    if not key or key == "your_google_gemini_api_key_here":
+        raise gr.Error("Set GOOGLE_API_KEY in .env and restart, or select TWIN_PROVIDER=ollama.")
     system = TWIN_SYSTEM_PROMPT
     enabled = notifications_enabled()
     if not enabled:
