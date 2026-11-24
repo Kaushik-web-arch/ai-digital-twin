@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 import gradio as gr
@@ -23,7 +24,54 @@ client = (
 )
 
 
-def chat(message, history, allow_forwarding=False):
+def local_answer(message, history):
+    """Return a verified profile answer without calling Gemini."""
+    question = message.casefold()
+    if re.search(r"\b(nobel|phd|patent|oscar)\b", question):
+        answer = "I don't have verified information about that in Kaushik's profile."
+    else:
+        topics = (
+            (r"sih103|infrastructure", "Kaushik built sih103 independently as its sole developer. It uses monthly government infrastructure reports to track projects, compare portfolios and show observed changes."),
+            (r"ghost drain|battery|daemon hour|third prize", "Kaushik's team won third prize at DAEMON HOUR with Ghost Drain Hunter. He worked on screen event monitoring, local session storage and Android integration."),
+            (r"cgpa|sgpa|education|college", "Kaushik studies Computer Science and Engineering (Data Science) at New Horizon College of Engineering. His cumulative CGPA is 8.10 and his fourth-semester SGPA was 8.48."),
+            (r"ai research agent", "The AI Research Agent uses Gemini and Gradio to produce research reports from a topic."),
+            (r"placement portal", "The Flask and MySQL Student Placement Portal connects administrator and student workflows for placement drives, eligibility and resume uploads."),
+            (r"zen sports|belt grading", "Kaushik independently built and delivered the Zen Sports & Fitness management app. It handles student records, belt grading and certificate generation."),
+            (r"finsight", "FinSight is a personal finance tracker with expense analysis, forecasting and unusual spending detection."),
+            (r"outreach agent|\bsdr\b", "The Multi-Model SDR Outreach Agent is a prototype for drafting and reviewing outreach emails using Gemini and Groq."),
+            (r"digital twin|profile", "The AI Digital Twin uses a profile PDF and summary to answer questions about Kaushik. Its Gradio interface offers a Project Explorer and uses Gemini for live chat."),
+            (r"skills|learning about ai", "Kaushik works with Python, Java fundamentals, C, SQL, Git and GitHub. His AI work focuses on Gemini integration and LLM applications."),
+            (r"projects|about kaushik|who is kaushik", "Kaushik is a Computer Science and Engineering (Data Science) undergraduate. His projects include sih103, Ghost Drain Hunter, AI Research Agent, Student Placement Portal, Zen Sports & Fitness and FinSight."),
+        )
+        if re.search(r"\b(it|that project|his role|that app)\b", question) and not any(
+            re.search(pattern, question) for pattern, _ in topics
+        ):
+            for item in reversed(history):
+                content = item.get("content")
+                if item.get("role") == "assistant" and isinstance(content, str):
+                    question += " " + content.casefold()
+                    break
+        answer = next(
+            (reply for pattern, reply in topics if re.search(pattern, question)),
+            "I don't have a verified local answer to that question. Try a project from the Project Explorer.",
+        )
+    return f"**Local profile mode** · {answer}"
+
+
+def chat_with_fallback(message, history, allow_forwarding=False):
+    if not message.strip():
+        raise gr.Error("Enter a question to start chatting.")
+    if os.getenv("TWIN_LOCAL_MODE", "").strip().lower() in {"1", "true"} or client is None:
+        return local_answer(message, history)
+    try:
+        return chat(message, history, allow_forwarding, propagate_errors=True)
+    except (APIConnectionError, APIStatusError) as error:
+        if isinstance(error, APIStatusError) and error.status_code not in (429, 500, 502, 503, 504):
+            raise gr.Error(f"Gemini rejected the request (HTTP {error.status_code}).") from None
+        return local_answer(message, history)
+
+
+def chat(message, history, allow_forwarding=False, *, propagate_errors=False):
     if not client:
         raise gr.Error("Set GOOGLE_API_KEY in .env and restart the app.")
     if not message.strip():
@@ -70,8 +118,12 @@ def chat(message, history, allow_forwarding=False):
             messages.append(reply.model_dump(exclude_none=True))
             messages.extend(handle_tool_calls(reply.tool_calls))
     except APIConnectionError:
+        if propagate_errors:
+            raise
         raise gr.Error("Could not reach Gemini. Check your connection and try again.") from None
     except APIStatusError as error:
+        if propagate_errors:
+            raise
         detail = {
             401: "Check your Gemini API key.",
             403: "Check your Gemini API key and project permissions.",
@@ -97,7 +149,7 @@ def build_demo():
                     value=False, visible=contact_enabled,
                 )
                 conversation = gr.ChatInterface(
-                    fn=chat,
+                    fn=chat_with_fallback,
                     examples=[[prompt] for prompt in EXAMPLES if contact_enabled or prompt != CONTACT_PROMPT],
                     additional_inputs=[forwarding],
                     cache_examples=False,
