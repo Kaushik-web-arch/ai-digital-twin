@@ -17,31 +17,10 @@ MAX_TOOL_ROUNDS = 3
 
 api_key = os.getenv("GOOGLE_API_KEY", "").strip()
 client = (
-    OpenAI(base_url=GEMINI_BASE_URL, api_key=api_key, timeout=12, max_retries=0)
+    OpenAI(base_url=GEMINI_BASE_URL, api_key=api_key, timeout=30, max_retries=0)
     if api_key and api_key != "your_google_gemini_api_key_here"
     else None
 )
-
-
-active_model = MODEL_NAME
-# Try a different Flash family directly, even if model discovery is unavailable.
-def generate(messages, options):
-    global active_model
-    candidates = dict.fromkeys((active_model, MODEL_NAME, "gemini-flash-latest", "gemini-3.5-flash-lite"))
-    attempts = []
-    for model in candidates:
-        try:
-            response = client.chat.completions.create(model=model, messages=messages, **options)
-        except (APIConnectionError, APIStatusError) as error:
-            status = getattr(error, "status_code", None)
-            if status is not None and status not in {404, 500, 502, 503, 504}:
-                raise
-            attempts.append(f"{model}: {status or 'connection failed'}")
-            print("Gemini attempt:", attempts[-1], flush=True)
-            continue
-        active_model = model
-        return response
-    raise gr.Error("Gemini could not answer. " + " | ".join(attempts))
 
 
 def chat(message, history, allow_forwarding=False):
@@ -76,7 +55,9 @@ def chat(message, history, allow_forwarding=False):
 
     try:
         for round_number in range(MAX_TOOL_ROUNDS + 1):
-            response = generate(messages, options)
+            response = client.chat.completions.create(
+                model=MODEL_NAME, messages=messages, **options
+            )
             if not response.choices:
                 break
             reply = response.choices[0].message
