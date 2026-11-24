@@ -24,37 +24,24 @@ client = (
 
 
 active_model = MODEL_NAME
-backup_model = None
-
-
-def alternate_model():
-    global backup_model
-    if backup_model is None:
-        import re
-        candidates = []
-        for entry in client.models.list(timeout=5):
-            name = entry.id.removeprefix("models/")
-            if name != MODEL_NAME and re.fullmatch(r"gemini-\d+(?:\.\d+)*-flash(?:-lite)?", name):
-                version = tuple(int(part) for part in name.split("-")[1].split("."))
-                candidates.append((version, name.endswith("-lite"), name))
-        backup_model = max(candidates)[2] if candidates else ""
-    return backup_model
-
-
+# Try a different Flash family directly, even if model discovery is unavailable.
 def generate(messages, options):
     global active_model
-    model = active_model
-    try:
-        return client.chat.completions.create(model=model, messages=messages, **options)
-    except (APIConnectionError, APIStatusError) as error:
-        if isinstance(error, APIStatusError) and error.status_code not in {404, 500, 502, 503, 504}:
-            raise
-        alternate = alternate_model() if model == MODEL_NAME else MODEL_NAME
-        if not alternate:
-            raise
-    response = client.chat.completions.create(model=alternate, messages=messages, **options)
-    active_model = alternate
-    return response
+    candidates = dict.fromkeys((active_model, MODEL_NAME, "gemini-flash-latest", "gemini-3.5-flash-lite"))
+    attempts = []
+    for model in candidates:
+        try:
+            response = client.chat.completions.create(model=model, messages=messages, **options)
+        except (APIConnectionError, APIStatusError) as error:
+            status = getattr(error, "status_code", None)
+            if status is not None and status not in {404, 500, 502, 503, 504}:
+                raise
+            attempts.append(f"{model}: {status or 'connection failed'}")
+            print("Gemini attempt:", attempts[-1], flush=True)
+            continue
+        active_model = model
+        return response
+    raise gr.Error("Gemini could not answer. " + " | ".join(attempts))
 
 
 def chat(message, history, allow_forwarding=False):
