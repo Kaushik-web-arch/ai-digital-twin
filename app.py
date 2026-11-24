@@ -17,10 +17,44 @@ MAX_TOOL_ROUNDS = 3
 
 api_key = os.getenv("GOOGLE_API_KEY", "").strip()
 client = (
-    OpenAI(base_url=GEMINI_BASE_URL, api_key=api_key, timeout=30, max_retries=1)
+    OpenAI(base_url=GEMINI_BASE_URL, api_key=api_key, timeout=12, max_retries=0)
     if api_key and api_key != "your_google_gemini_api_key_here"
     else None
 )
+
+
+active_model = MODEL_NAME
+backup_model = None
+
+
+def alternate_model():
+    global backup_model
+    if backup_model is None:
+        import re
+        candidates = []
+        for entry in client.models.list(timeout=5):
+            name = entry.id.removeprefix("models/")
+            if name != MODEL_NAME and re.fullmatch(r"gemini-\d+(?:\.\d+)*-flash(?:-lite)?", name):
+                version = tuple(int(part) for part in name.split("-")[1].split("."))
+                candidates.append((version, name.endswith("-lite"), name))
+        backup_model = max(candidates)[2] if candidates else ""
+    return backup_model
+
+
+def generate(messages, options):
+    global active_model
+    model = active_model
+    try:
+        return client.chat.completions.create(model=model, messages=messages, **options)
+    except (APIConnectionError, APIStatusError) as error:
+        if isinstance(error, APIStatusError) and error.status_code not in {404, 500, 502, 503, 504}:
+            raise
+        alternate = alternate_model() if model == MODEL_NAME else MODEL_NAME
+        if not alternate:
+            raise
+    response = client.chat.completions.create(model=alternate, messages=messages, **options)
+    active_model = alternate
+    return response
 
 
 def chat(message, history, allow_forwarding=False):
@@ -55,9 +89,7 @@ def chat(message, history, allow_forwarding=False):
 
     try:
         for round_number in range(MAX_TOOL_ROUNDS + 1):
-            response = client.chat.completions.create(
-                model=MODEL_NAME, messages=messages, **options
-            )
+            response = generate(messages, options)
             if not response.choices:
                 break
             reply = response.choices[0].message
@@ -76,7 +108,7 @@ def chat(message, history, allow_forwarding=False):
             401: "Check your Gemini API key.",
             403: "Check your Gemini API key and project permissions.",
             404: "Check that GEMINI_MODEL is available to your API key.",
-            503: f"Gemini model {MODEL_NAME} is temporarily unavailable (503). Try again shortly or set GEMINI_MODEL in .env to another model available to your key and restart.",
+            503: "Gemini is temporarily unavailable (503). Please try again shortly.",
             429: "Gemini's rate or quota limit was reached. Try again later.",
         }.get(error.status_code, "Gemini could not complete this request. Try again later.")
         raise gr.Error(detail) from None
