@@ -101,11 +101,5 @@ Set `PUSHOVER_USER` and `PUSHOVER_TOKEN` in your local `.env` to enable a visito
 3. With your own test contact details and configured Pushover credentials, open Contact Kaushik, review the email and message, click Confirm and send, and independently confirm the notification arrives.
 4. Record the commit, model, dependency versions and observed results without exposing credentials or personal contact details.
 
-For four live review questions run `.\\.venv\\Scripts\\python.exe review_demo.py`. Open the resulting HTML file in a browser. Compare each answer with its expected facts before presenting. The saved transcript works offline. For a visual backup, record your running Gradio demo on the presentation laptop.
 
 These are checks to perform, not recorded passing results. The repository currently has no automated test suite. Model access, notification delivery and factual quality require separate verification; no measured hallucination reduction is claimed.
-
-
-### Local profile demo
-
-On Windows PowerShell, set `$env:TWIN_LOCAL_MODE = "true"` before running `.\.venv\Scripts\python.exe app.py`. Local mode uses prepared profile answers. The chat also switches to local replies on temporary Gemini errors. Use the localhost address for an offline demo. The review script continues to check live Gemini replies.
