@@ -3,75 +3,99 @@ from pathlib import Path
 
 import gradio as gr
 from dotenv import load_dotenv
-from openai import APIConnectionError, APIStatusError, OpenAI
+import requests
+from urllib.parse import quote
 
 from context import TWIN_SYSTEM_PROMPT
 from styles import CSS, EXAMPLES, JS, PROJECT_GROUPS
-from tools import handle_tool_calls, notifications_enabled, tools
+from tools import tool_map, notifications_enabled, tools
 
 load_dotenv(Path(__file__).with_name(".env"))
 
-MODEL_NAME = os.getenv("GEMINI_MODEL", "").strip() or "gemini-3.1-flash-lite"
-GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+MODEL_NAME = os.getenv("GEMINI_MODEL", "").strip() or "gemini-3.5-flash-lite"
+API_ROOT = "https://generativelanguage.googleapis.com/v1beta/models"
 MAX_TOOL_ROUNDS = 3
 
-api_key = os.getenv("GOOGLE_API_KEY", "").strip()
-client = (
-    OpenAI(base_url=GEMINI_BASE_URL, api_key=api_key, timeout=30, max_retries=0)
-    if api_key and api_key != "your_google_gemini_api_key_here"
-    else None
-)
+
+def generate(model, payload, key):
+    try:
+        response = requests.post(
+            f"{API_ROOT}/{quote(model, safe='')}:generateContent",
+            headers={"x-goog-api-key": key}, json=payload, timeout=(5, 20),
+        )
+    except requests.Timeout:
+        raise gr.Error("The Gemini request timed out. Please try again.") from None
+    except requests.ConnectionError:
+        raise gr.Error("Could not connect to Google. Check the connection to generativelanguage.googleapis.com.") from None
+    return response
 
 
 def chat(message, history):
-    if not client:
-        raise gr.Error("Set GOOGLE_API_KEY in .env and restart the app.")
+    key = os.getenv("GOOGLE_API_KEY", "").strip()
+    if not key or key == "your_google_gemini_api_key_here":
+        raise gr.Error("Set GOOGLE_API_KEY in .env and restart.")
     if not message.strip():
-        raise gr.Error("Enter a question to start chatting.")
+        raise gr.Error("Enter a question.")
 
-    context = TWIN_SYSTEM_PROMPT
-    options = {}
-    if notifications_enabled():
-        options["tools"] = tools
-    else:
-        context += "\nNotifications are disabled. If asked to forward a message, explain that forwarding is unavailable."
+    contents = []
+    for item in history:
+        text = item.get("content")
+        if isinstance(text, list):
+            text = "\n".join(p["text"] for p in text if isinstance(p, dict)
+                              and p.get("type") == "text" and isinstance(p.get("text"), str))
+        if item.get("role") in {"assistant", "user"} and isinstance(text, str) and text.strip():
+            role = "model" if item["role"] == "assistant" else "user"
+            contents.append({"role": role, "parts": [{"text": text}]})
+    contents.append({"role": "user", "parts": [{"text": message}]})
+    system = TWIN_SYSTEM_PROMPT
+    enabled = notifications_enabled()
+    if not enabled:
+        system += "\nNotifications are disabled. Explain that forwarding is unavailable if asked."
+    payload = {"systemInstruction": {"parts": [{"text": system}]}, "contents": contents}
+    if enabled:
+        declarations = [
+            {"name": spec["name"], "description": spec["description"],
+             "parametersJsonSchema": spec["parameters"]}
+            for spec in (entry["function"] for entry in tools)
+        ]
+        payload["tools"] = [{"functionDeclarations": declarations}]
 
-    messages = [{"role": "system", "content": context}]
-    messages.extend(
-        {"role": item["role"], "content": item["content"]}
-        for item in history
-        if item["role"] in {"user", "assistant"} and isinstance(item["content"], str)
-    )
-    messages.append({"role": "user", "content": message})
-
-    try:
-        for round_number in range(MAX_TOOL_ROUNDS + 1):
-            response = client.chat.completions.create(
-                model=MODEL_NAME, messages=messages, **options
-            )
-            if not response.choices:
-                break
-            reply = response.choices[0].message
-            if not reply.tool_calls:
-                if reply.content and reply.content.strip():
-                    return reply.content
-                break
-            if not options or round_number == MAX_TOOL_ROUNDS:
-                break
-            messages.append(reply.model_dump(exclude_none=True))
-            messages.extend(handle_tool_calls(reply.tool_calls))
-    except APIConnectionError:
-        raise gr.Error("Could not reach Gemini. Check your connection and try again.") from None
-    except APIStatusError as error:
-        detail = {
-            401: "Check your Gemini API key.",
-            403: "Check your Gemini API key and project permissions.",
-            404: "Check that GEMINI_MODEL is available to your API key.",
-            429: "Gemini's rate or quota limit was reached. Try again later.",
-        }.get(error.status_code, "Gemini could not complete this request. Try again later.")
-        raise gr.Error(detail) from None
-
-    raise gr.Error("Gemini returned no usable answer. Try rephrasing your question.")
+    model = MODEL_NAME
+    for attempt in range(MAX_TOOL_ROUNDS + 1):
+        response = generate(model, payload, key)
+        if attempt == 0 and response.status_code in (404, 503) and model != "gemini-flash-latest":
+            print(f"{model} returned HTTP {response.status_code}. Trying gemini-flash-latest.", flush=True)
+            model = "gemini-flash-latest"
+            response = generate(model, payload, key)
+        if not response.ok:
+            print(f"Native Gemini request: {model}, HTTP {response.status_code}", flush=True)
+            raise gr.Error(f"Google returned HTTP {response.status_code} for {model}.")
+        data = response.json()
+        candidate = next(iter(data.get("candidates", [])), {})
+        reply = candidate.get("content", {})
+        parts = reply.get("parts", [])
+        calls = [part["functionCall"] for part in parts if part.get("functionCall")]
+        if not calls:
+            answer = "\n".join(p["text"] for p in parts if p.get("text") and not p.get("thought"))
+            if answer.strip():
+                return answer
+            break
+        if not enabled or attempt == MAX_TOOL_ROUNDS:
+            break
+        contents.append(reply)
+        results = []
+        for call in calls:
+            name = call["name"]
+            try:
+                result = tool_map[name](**call.get("args", {}))
+            except (KeyError, TypeError):
+                result = {"status": "invalid_tool_call"}
+            result_part = {"name": name, "response": result}
+            if call.get("id"):
+                result_part["id"] = call["id"]
+            results.append({"functionResponse": result_part})
+        contents.append({"role": "user", "parts": results})
+    raise gr.Error("Gemini returned no text answer. Try rephrasing your question.")
 
 
 def build_demo():
