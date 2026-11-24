@@ -1,27 +1,17 @@
 from pathlib import Path
 
 from pypdf import PdfReader
-from pypdf.errors import PyPdfError
 
 profile_dir = Path(__file__).resolve().parent
-def load_profile(directory):
-    try:
-        reader = PdfReader(directory / "linkedin.pdf")
-        profile = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
-    except (OSError, PyPdfError, ValueError) as error:
-        raise RuntimeError("Cannot read linkedin.pdf. Restore the profile PDF and restart.") from error
-    if not profile:
-        raise RuntimeError("linkedin.pdf has no extractable text. Use a searchable PDF and restart.")
-    try:
-        summary = (directory / "summary.txt").read_text(encoding="utf-8").strip()
-    except (OSError, UnicodeError) as error:
-        raise RuntimeError("Cannot read summary.txt. Restore the UTF-8 summary and restart.") from error
-    if not summary:
-        raise RuntimeError("summary.txt is empty. Restore the profile summary and restart.")
-    return profile, summary
+reader = PdfReader(profile_dir / "linkedin.pdf")
 
+linkedin = ""
+for page in reader.pages:
+    text = page.extract_text()
+    if text:
+        linkedin += text + "\n"
 
-linkedin, summary = load_profile(profile_dir)
+summary = (profile_dir / "summary.txt").read_text(encoding="utf-8")
 
 TWIN_SYSTEM_PROMPT = f"""
 # Personality
@@ -65,7 +55,7 @@ If the user asks about something unrelated, then steer the conversation back to 
 
 Always stay in character as the digital twin of the person you are representing. Represent the person.
 
-Never claim to have forwarded a visitor's contact details.
+If the contact tool is available, ask for permission to forward the visitor's email before using it. Report the tool's actual outcome.
 
 IMPORTANT:
 If you don't know the answer, say so. Use the unanswered-question tool when available, and never invent an answer.

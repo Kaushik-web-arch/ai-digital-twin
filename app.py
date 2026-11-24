@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 from openai import APIConnectionError, APIStatusError, OpenAI
 
 from context import TWIN_SYSTEM_PROMPT
-from styles import CONTACT_PROMPT, CSS, EXAMPLES, JS, PROJECT_GROUPS
-from tools import send_contact, handle_tool_calls, notifications_enabled, tools
+from styles import CSS, EXAMPLES, JS, PROJECT_GROUPS
+from tools import handle_tool_calls, notifications_enabled, tools
 
 load_dotenv(Path(__file__).with_name(".env"))
 
@@ -23,7 +23,7 @@ client = (
 )
 
 
-def chat(message, history, allow_forwarding=False):
+def chat(message, history):
     if not client:
         raise gr.Error("Set GOOGLE_API_KEY in .env and restart the app.")
     if not message.strip():
@@ -32,25 +32,16 @@ def chat(message, history, allow_forwarding=False):
     context = TWIN_SYSTEM_PROMPT
     options = {}
     if notifications_enabled():
-        if allow_forwarding is True:
-            options["tools"] = tools
-        context += "\nFor contact requests, direct visitors to the Contact Kaushik form below the chat."
+        options["tools"] = tools
     else:
         context += "\nNotifications are disabled. If asked to forward a message, explain that forwarding is unavailable."
 
     messages = [{"role": "system", "content": context}]
-    for item in history:
-        if item.get("role") not in {"user", "assistant"}:
-            continue
-        content = item.get("content")
-        if isinstance(content, list):
-            content = "\n".join(
-                part["text"] for part in content
-                if isinstance(part, dict) and part.get("type") == "text"
-                and isinstance(part.get("text"), str)
-            )
-        if isinstance(content, str) and content.strip():
-            messages.append({"role": item["role"], "content": content})
+    messages.extend(
+        {"role": item["role"], "content": item["content"]}
+        for item in history
+        if item["role"] in {"user", "assistant"} and isinstance(item["content"], str)
+    )
     messages.append({"role": "user", "content": message})
 
     try:
@@ -76,7 +67,6 @@ def chat(message, history, allow_forwarding=False):
             401: "Check your Gemini API key.",
             403: "Check your Gemini API key and project permissions.",
             404: "Check that GEMINI_MODEL is available to your API key.",
-            503: "Gemini is temporarily unavailable (503). Please try again shortly.",
             429: "Gemini's rate or quota limit was reached. Try again later.",
         }.get(error.status_code, "Gemini could not complete this request. Try again later.")
         raise gr.Error(detail) from None
@@ -92,15 +82,9 @@ def build_demo():
         )
         with gr.Row(elem_id="twin-layout"):
             with gr.Column(scale=3, elem_id="twin-chat-column"):
-                contact_enabled = notifications_enabled()
-                forwarding = gr.Checkbox(
-                    label="Allow unanswered questions to be sent to Kaushik via Pushover",
-                    value=False, visible=contact_enabled,
-                )
                 conversation = gr.ChatInterface(
                     fn=chat,
-                    examples=[[prompt] for prompt in EXAMPLES if contact_enabled or prompt != CONTACT_PROMPT],
-                    additional_inputs=[forwarding],
+                    examples=EXAMPLES,
                     cache_examples=False,
                     chatbot=gr.Chatbot(show_label=False, height=510, elem_id="twin-chatbot"),
                     textbox=gr.Textbox(
@@ -128,14 +112,6 @@ def build_demo():
                             show_progress="hidden",
                             api_visibility="undocumented",
                         )
-        if notifications_enabled():
-            with gr.Accordion("Contact Kaushik", open=False):
-                gr.Markdown("Review your email and message below. Confirm and send forwards both to Kaushik via Pushover.")
-                email = gr.Textbox(label="Your email")
-                note = gr.Textbox(label="Your message (optional)")
-                confirm = gr.Button("Confirm and send")
-                status = gr.Textbox(label="Delivery status", interactive=False)
-                confirm.click(send_contact, inputs=[email, note], outputs=status)
     return demo
 
 
